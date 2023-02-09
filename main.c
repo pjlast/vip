@@ -115,10 +115,10 @@ int main(int argc, char *argv[]) {
       render_termios_set(&orig_termios);
       return 0;
     case 'k':
-      render_buffer_append(&E.render_buffer, "\033[A", 3);
+      render_buffer_append(&E.render_buffer, "\033M", 3);
       break;
     case 'j':
-      render_buffer_append(&E.render_buffer, "\033[B", 3);
+      render_buffer_append(&E.render_buffer, "\033D", 3);
       break;
     case 'l':
       render_buffer_append(&E.render_buffer, "\033[C", 3);
