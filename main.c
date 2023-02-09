@@ -5,6 +5,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 struct row {
   char *chars;
   int length;
@@ -21,6 +23,10 @@ struct editor {
   struct render_buffer render_buffer;
   int screen_rows;
   int screen_cols;
+  int file_cursor_row;
+  int file_cursor_col;
+  int render_row_offset;
+  int render_col_offset;
 };
 
 void editor_open_file(struct editor *E, char *filename) {
@@ -72,7 +78,7 @@ char editor_read_key() {
 }
 
 int main(int argc, char *argv[]) {
-  struct editor E = {NULL, {NULL, 0}, {NULL, 0}, 0, 0};
+  struct editor E = {NULL, {NULL, 0}, {NULL, 0}, 0, 0, 0, 0, 0, 0};
 
   if (argc < 2) {
     return 1;
@@ -110,21 +116,115 @@ int main(int argc, char *argv[]) {
   while (1) {
     c = editor_read_key();
     switch (c) {
+    case '\033':
+      if (read(STDIN_FILENO, &c, 1) != 1)
+        break;
+      if (read(STDIN_FILENO, &c, 1) != 1)
+        break;
+      switch (c) {
+      case 'A':
+        if (E.file_cursor_row > 0) {
+          E.file_cursor_row--;
+          render_buffer_append(&E.render_buffer, "\033M", 3);
+          if (E.file_cursor_row < E.render_row_offset) {
+            E.render_row_offset--;
+            render_buffer_append(&E.render_buffer, "\033[s\r", 4);
+            render_buffer_append(&E.render_buffer,
+                                 E.file.rows[E.file_cursor_row].chars,
+                                 E.file.rows[E.file_cursor_row].length);
+            render_buffer_append(&E.render_buffer, "\033[K", 3);
+            render_buffer_append(&E.render_buffer, "\033[u", 3);
+          }
+          if (E.file_cursor_col >= E.file.rows[E.file_cursor_row].length) {
+            E.file_cursor_col =
+                MAX(E.file.rows[E.file_cursor_row].length - 1, 0);
+            render_set_cursor_position(
+                &E.render_buffer, E.file_cursor_row - E.render_row_offset + 1,
+                E.file_cursor_col + 1);
+          }
+        }
+        break;
+      case 'B':
+        if (E.file_cursor_row < E.file.length - 1) {
+          E.file_cursor_row++;
+          render_buffer_append(&E.render_buffer, "\033D", 3);
+          if (E.file_cursor_row > E.render_row_offset + E.screen_rows - 1) {
+            E.render_row_offset++;
+            render_buffer_append(&E.render_buffer, "\033[s\r", 4);
+            render_buffer_append(&E.render_buffer,
+                                 E.file.rows[E.file_cursor_row].chars,
+                                 E.file.rows[E.file_cursor_row].length);
+            render_buffer_append(&E.render_buffer, "\033[K", 3);
+            render_buffer_append(&E.render_buffer, "\033[u", 3);
+          }
+          if (E.file_cursor_col >= E.file.rows[E.file_cursor_row].length) {
+            E.file_cursor_col =
+                MAX(E.file.rows[E.file_cursor_row].length - 1, 0);
+            render_set_cursor_position(
+                &E.render_buffer, E.file_cursor_row - E.render_row_offset + 1,
+                E.file_cursor_col + 1);
+          }
+        }
+        break;
+      }
+      break;
     case 'q':
       editor_close(&E);
       render_termios_set(&orig_termios);
       return 0;
     case 'k':
-      render_buffer_append(&E.render_buffer, "\033M", 3);
+      if (E.file_cursor_row > 0) {
+        E.file_cursor_row--;
+        render_buffer_append(&E.render_buffer, "\033M", 3);
+        if (E.file_cursor_row < E.render_row_offset) {
+          E.render_row_offset--;
+          render_buffer_append(&E.render_buffer, "\033[s\r", 4);
+          render_buffer_append(&E.render_buffer,
+                               E.file.rows[E.file_cursor_row].chars,
+                               E.file.rows[E.file_cursor_row].length);
+          render_buffer_append(&E.render_buffer, "\033[K", 3);
+          render_buffer_append(&E.render_buffer, "\033[u", 3);
+        }
+        if (E.file_cursor_col >= E.file.rows[E.file_cursor_row].length) {
+          E.file_cursor_col = MAX(E.file.rows[E.file_cursor_row].length - 1, 0);
+          render_set_cursor_position(
+              &E.render_buffer, E.file_cursor_row - E.render_row_offset + 1,
+              E.file_cursor_col + 1);
+        }
+      }
       break;
     case 'j':
-      render_buffer_append(&E.render_buffer, "\033D", 3);
+      if (E.file_cursor_row < E.file.length - 1) {
+        E.file_cursor_row++;
+        render_buffer_append(&E.render_buffer, "\033D", 3);
+        if (E.file_cursor_row > E.render_row_offset + E.screen_rows - 1) {
+          E.render_row_offset++;
+          render_buffer_append(&E.render_buffer, "\033[s\r", 4);
+          render_buffer_append(&E.render_buffer,
+                               E.file.rows[E.file_cursor_row].chars,
+                               E.file.rows[E.file_cursor_row].length);
+          render_buffer_append(&E.render_buffer, "\033[K", 3);
+          render_buffer_append(&E.render_buffer, "\033[u", 3);
+        }
+        if (E.file_cursor_col >= E.file.rows[E.file_cursor_row].length) {
+          E.file_cursor_col = MAX(E.file.rows[E.file_cursor_row].length - 1, 0);
+          render_set_cursor_position(
+              &E.render_buffer, E.file_cursor_row - E.render_row_offset + 1,
+              E.file_cursor_col + 1);
+        }
+      }
       break;
     case 'l':
-      render_buffer_append(&E.render_buffer, "\033[C", 3);
+      if (E.file_cursor_col < E.file.rows[E.file_cursor_row].length - 1) {
+        E.file_cursor_col++;
+        render_buffer_append(&E.render_buffer, "\033[C", 4);
+      }
       break;
     case 'h':
-      render_buffer_append(&E.render_buffer, "\033[D", 3);
+      if (E.file_cursor_col > 0) {
+        E.file_cursor_col--;
+        render_buffer_append(&E.render_buffer, "\033[D", 3);
+      }
       break;
     }
 

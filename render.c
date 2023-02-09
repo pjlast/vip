@@ -82,17 +82,6 @@ int render_strlen(char *s, int max_len) {
   return len;
 }
 
-void render_line(int row, int start_col, int max_len, char *line, int clear) {
-  char buf[32];
-  snprintf(buf, sizeof(buf), "\033[%d;%dH", row, start_col);
-  write(STDOUT_FILENO, buf, strlen(buf));
-  int len = render_strlen(line, max_len);
-  write(STDOUT_FILENO, line, len);
-  write(STDOUT_FILENO, "\033[39m", 5);
-  if (clear)
-    write(STDOUT_FILENO, "\033[K", 3);
-}
-
 void render_buffer_append(struct render_buffer *buf, const char *s, int len) {
   char *new = realloc(buf->buf, buf->len + len);
   if (new == NULL)
@@ -115,6 +104,12 @@ void render_buffer_write(struct render_buffer *buf) {
 
 void render_set_cursor_home(struct render_buffer *buf) {
   render_buffer_append(buf, "\033[H", 3);
+}
+
+void render_set_cursor_position(struct render_buffer *buf, int row, int col) {
+  char cursor_pos[16];
+  int len = snprintf(cursor_pos, 16, "\033[%d;%dH", row, col);
+  render_buffer_append(buf, cursor_pos, len);
 }
 
 void render_clear_screen(struct render_buffer *buf) {
