@@ -9,4 +9,6 @@ void edit_delete_char(char **string, int *len, int pos);
 
 char *edit_split_string(char **string, int *len, int pos);
 
+void edit_append_string(char **string, int *len, char *astring, int alen);
+
 #endif /* _EDIT_H_ */

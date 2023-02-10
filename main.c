@@ -194,7 +194,6 @@ void file_insert_row(struct file *file, int at, char *s, size_t len) {
 }
 
 void file_delete_row(struct file *file, int at) {
-
   if (at < 0 || at > file->length)
     return;
 
@@ -412,19 +411,34 @@ int editor_process_input(struct editor *E) {
         }
         E->file_cursor_col--;
       } else {
-        file_delete_row(&E->file, E->file_cursor_row);
+        E->file_cursor_row--;
+        set_render_column(E->file.rows[E->file_cursor_row].chars,
+                          E->file.rows[E->file_cursor_row].length,
+                          &E->file_cursor_col, &E->render_cursor_col, 999);
+        int preferred_col = E->render_cursor_col;
+        if (E->file.rows[E->file_cursor_row].length > 0)
+          preferred_col++;
+        edit_append_string(&E->file.rows[E->file_cursor_row].chars,
+                           &E->file.rows[E->file_cursor_row].length,
+                           E->file.rows[E->file_cursor_row + 1].chars,
+                           E->file.rows[E->file_cursor_row + 1].length);
+        editor_update_render_row(&E->file.rows[E->file_cursor_row]);
+        file_delete_row(&E->file, E->file_cursor_row + 1);
+        render_buffer_append(&E->render_buffer, "\033M", 2);
         for (int i = E->file_cursor_row;
-             i < E->screen_rows + E->render_row_offset && i < E->file.length;
+             i < E->screen_rows + E->render_row_offset - 1 &&
+             i < E->file.length;
              i++) {
           render_row(&E->render_buffer, E->file.rows[i].rchars,
                      E->file.rows[i].rlength);
-          if (i < E->screen_rows + E->render_row_offset - 1) {
+          if (i < E->screen_rows + E->render_row_offset - 2) {
             render_buffer_append(&E->render_buffer, "\r\n", 2);
           }
         }
         set_render_column(E->file.rows[E->file_cursor_row].chars,
                           E->file.rows[E->file_cursor_row].length,
-                          &E->file_cursor_col, &E->render_cursor_col, 0);
+                          &E->file_cursor_col, &E->render_cursor_col,
+                          preferred_col);
         render_set_cursor_position(
             &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
             E->render_cursor_col + 1);

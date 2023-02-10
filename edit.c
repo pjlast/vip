@@ -26,3 +26,9 @@ char *edit_split_string(char **string, int *len, int pos) {
   *len = pos;
   return new;
 }
+
+void edit_append_string(char **string, int *len, char *astring, int alen) {
+  *string = realloc(*string, *len + alen + 1);
+  memcpy(*string + *len, astring, alen + 1);
+  *len += alen;
+}
