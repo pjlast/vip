@@ -120,5 +120,6 @@ void render_clear_screen(struct render_buffer *buf) {
 void render_row(struct render_buffer *buf, const char *row, int len) {
   render_buffer_append(buf, "\033[s\r", 4);
   render_buffer_append(buf, row, len);
+  render_buffer_append(buf, "\033[K", 3);
   render_buffer_append(buf, "\033[u", 3);
 }

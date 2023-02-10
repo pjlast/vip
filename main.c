@@ -279,22 +279,26 @@ int editor_process_input(struct editor *E) {
       }
       break;
     case 'a':
-      E->file_cursor_col++;
-      E->render_cursor_col++;
-      render_buffer_append(&E->render_buffer, "\033[C", 3);
+      if (E->file.rows[E->file_cursor_col].length > 0) {
+        E->file_cursor_col++;
+        E->render_cursor_col++;
+        render_buffer_append(&E->render_buffer, "\033[C", 3);
+      }
     case 'i':
       E->mode = MODE_INSERT;
       break;
     case 'A':
-      E->file_cursor_col = E->file.rows[E->file_cursor_row].length;
-      set_render_column(E->file.rows[E->file_cursor_row].chars,
-                        E->file.rows[E->file_cursor_row].length,
-                        &E->file_cursor_col, &E->render_cursor_col, 999);
-      E->render_cursor_col++;
-      E->file_cursor_col++;
-      render_set_cursor_position(&E->render_buffer,
-                                 E->file_cursor_row - E->render_row_offset + 1,
-                                 E->render_cursor_col + 1);
+      if (E->file.rows[E->file_cursor_col].length > 0) {
+        E->file_cursor_col = E->file.rows[E->file_cursor_row].length;
+        set_render_column(E->file.rows[E->file_cursor_row].chars,
+                          E->file.rows[E->file_cursor_row].length,
+                          &E->file_cursor_col, &E->render_cursor_col, 999);
+        E->render_cursor_col++;
+        E->file_cursor_col++;
+        render_set_cursor_position(
+            &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
+            E->render_cursor_col + 1);
+      }
       E->mode = MODE_INSERT;
       break;
     case ':':
@@ -312,6 +316,30 @@ int editor_process_input(struct editor *E) {
       }
       E->mode = MODE_NORMAL;
       break;
+    case 127: {
+      if (E->file_cursor_col > 0) {
+        char del_char =
+            E->file.rows[E->file_cursor_row].chars[E->file_cursor_col - 1];
+        edit_delete_char(&E->file.rows[E->file_cursor_row].chars,
+                         &E->file.rows[E->file_cursor_row].length,
+                         E->file_cursor_col - 1);
+        editor_update_render_row(&E->file.rows[E->file_cursor_row]);
+        render_row(&E->render_buffer, E->file.rows[E->file_cursor_row].rchars,
+                   E->file.rows[E->file_cursor_row].rlength);
+        if (del_char == '\t') {
+          E->render_cursor_col -= TAB_STOP;
+          char term_command[16];
+          int len = snprintf(term_command, sizeof(term_command), "\033[%dD",
+                             TAB_STOP);
+          render_buffer_append(&E->render_buffer, term_command, len);
+        } else {
+          E->render_cursor_col--;
+          render_buffer_append(&E->render_buffer, "\033[D", 3);
+        }
+        E->file_cursor_col--;
+      }
+      break;
+    }
     default:
       edit_insert_char(&E->file.rows[E->file_cursor_row].chars,
                        &E->file.rows[E->file_cursor_row].length,

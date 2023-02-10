@@ -5,4 +5,6 @@
  * updates the length. */
 void edit_insert_char(char **string, int *len, int pos, char c);
 
+void edit_delete_char(char **string, int *len, int pos);
+
 #endif /* _EDIT_H_ */
