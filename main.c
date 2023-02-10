@@ -301,6 +301,48 @@ int editor_process_input(struct editor *E) {
       }
       E->mode = MODE_INSERT;
       break;
+    case 'x':
+      if (E->file.rows[E->file_cursor_row].length > 0) {
+        char del_char =
+            E->file.rows[E->file_cursor_row].chars[E->file_cursor_col];
+        edit_delete_char(&E->file.rows[E->file_cursor_row].chars,
+                         &E->file.rows[E->file_cursor_row].length,
+                         E->file_cursor_col);
+        editor_update_render_row(&E->file.rows[E->file_cursor_row]);
+        render_row(&E->render_buffer, E->file.rows[E->file_cursor_row].rchars,
+                   E->file.rows[E->file_cursor_row].rlength);
+
+        if (E->file_cursor_col >= E->file.rows[E->file_cursor_row].length) {
+          E->file_cursor_col--;
+          if (del_char == '\t') {
+            E->render_cursor_col -= TAB_STOP;
+            char term_command[16];
+            int len = snprintf(term_command, sizeof(term_command), "\033[%dD",
+                               TAB_STOP);
+            render_buffer_append(&E->render_buffer, term_command, len);
+          } else {
+            E->render_cursor_col--;
+            render_buffer_append(&E->render_buffer, "\033[D", 3);
+          }
+        } else {
+          if (del_char == '\t') {
+            E->render_cursor_col -= TAB_STOP - 1;
+            char term_command[16];
+            int len = snprintf(term_command, sizeof(term_command), "\033[%dD",
+                               TAB_STOP - 1);
+            render_buffer_append(&E->render_buffer, term_command, len);
+          }
+          if (E->file.rows[E->file_cursor_row].chars[E->file_cursor_col] ==
+              '\t') {
+            E->render_cursor_col += TAB_STOP - 1;
+            char term_command[16];
+            int len = snprintf(term_command, sizeof(term_command), "\033[%dC",
+                               TAB_STOP - 1);
+            render_buffer_append(&E->render_buffer, term_command, len);
+          }
+        }
+      }
+      break;
     case ':':
       E->mode = MODE_COMMAND;
       break;
@@ -366,7 +408,7 @@ int editor_process_input(struct editor *E) {
     case '\033':
       E->mode = MODE_NORMAL;
       break;
-    case 's':
+    case 'w':
       editor_save_file(E, E->file.filename);
       E->mode = MODE_NORMAL;
       break;
