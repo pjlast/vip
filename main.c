@@ -104,6 +104,15 @@ void editor_open_file(struct editor *E, char *filename) {
   fclose(fp);
 }
 
+void editor_save_file(struct editor *E, char *filename) {
+  FILE *fp = fopen(filename, "w");
+  for (int i = 0; i < E->file.length; i++) {
+    fwrite(E->file.rows[i].chars, E->file.rows[i].length, 1, fp);
+    fwrite("\n", 1, 1, fp);
+  }
+  fclose(fp);
+}
+
 void editor_update_render_row(struct row *row) {
   int tabs = 0;
   for (int i = 0; i < row->length; i++)
@@ -186,8 +195,6 @@ int editor_process_input(struct editor *E) {
     }
 
     switch (c) {
-    case 'q':
-      return 0;
     case 'k':
       if (E->file_cursor_row > 0) {
         E->file_cursor_row--;
@@ -331,6 +338,12 @@ int editor_process_input(struct editor *E) {
     case '\033':
       E->mode = MODE_NORMAL;
       break;
+    case 's':
+      editor_save_file(E, E->file.filename);
+      E->mode = MODE_NORMAL;
+      break;
+    case 'q':
+      return 0;
     case '\r':
       E->mode = MODE_NORMAL;
       break;
