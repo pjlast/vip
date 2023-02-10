@@ -115,3 +115,10 @@ void render_set_cursor_position(struct render_buffer *buf, int row, int col) {
 void render_clear_screen(struct render_buffer *buf) {
   render_buffer_append(buf, "\033[2J", 4);
 };
+
+/* Renders the provided row at the current cursor position. */
+void render_row(struct render_buffer *buf, const char *row, int len) {
+  render_buffer_append(buf, "\033[s\r", 4);
+  render_buffer_append(buf, row, len);
+  render_buffer_append(buf, "\033[u", 3);
+}
