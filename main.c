@@ -193,6 +193,16 @@ void file_insert_row(struct file *file, int at, char *s, size_t len) {
   file->length++;
 }
 
+void file_delete_row(struct file *file, int at) {
+
+  if (at < 0 || at > file->length)
+    return;
+
+  memmove(&file->rows[at], &file->rows[at + 1], sizeof(struct row) * (file->length - at - 1));
+  file->rows = realloc(file->rows, sizeof(struct row) * (file->length - 1));
+  file->length--;
+}
+
 int editor_process_input(struct editor *E) {
   char c = editor_read_key();
 
@@ -300,7 +310,7 @@ int editor_process_input(struct editor *E) {
       }
       break;
     case 'a':
-      if (E->file.rows[E->file_cursor_col].length > 0) {
+      if (E->file.rows[E->file_cursor_row].length > 0) {
         E->file_cursor_col++;
         E->render_cursor_col++;
         render_buffer_append(&E->render_buffer, "\033[C", 3);
@@ -400,6 +410,21 @@ int editor_process_input(struct editor *E) {
           render_buffer_append(&E->render_buffer, "\033[D", 3);
         }
         E->file_cursor_col--;
+      } else {
+        file_delete_row(&E->file, E->file_cursor_row);
+        for (int i = E->file_cursor_row; i < E->screen_rows + E->render_row_offset && i < E->file.length; i++) {
+          render_row(&E->render_buffer, E->file.rows[i].rchars,
+                     E->file.rows[i].rlength);
+          if (i < E->screen_rows + E->render_row_offset - 1) {
+            render_buffer_append(&E->render_buffer, "\r\n", 2);
+          }
+        }
+        set_render_column(E->file.rows[E->file_cursor_row].chars,
+                          E->file.rows[E->file_cursor_row].length,
+                          &E->file_cursor_col, &E->render_cursor_col, 0);
+        render_set_cursor_position(&E->render_buffer,
+                                   E->file_cursor_row - E->render_row_offset + 1,
+                                   E->render_cursor_col + 1);
       }
       break;
     }
