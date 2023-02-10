@@ -14,3 +14,15 @@ void edit_delete_char(char **string, int *len, int pos) {
   (*string)[--(*len)] = '\0';
   *string = realloc(*string, *len + 1);
 }
+
+char *edit_split_string(char **string, int *len, int pos) {
+  int new_len = *len - pos;
+  char *new = malloc(new_len + 1);
+  memcpy(new, *string + pos, new_len);
+  new[new_len] = '\0';
+
+  *string = realloc(*string, pos + 1);
+  (*string)[pos] = '\0';
+  *len = pos;
+  return new;
+}

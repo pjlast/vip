@@ -172,6 +172,27 @@ void set_render_column(const char *chars, int length, int *file_col,
   }
 }
 
+void file_insert_row(struct file *file, int at, char *s, size_t len) {
+  if (at < 0 || at > file->length)
+    return;
+
+  file->rows = realloc(file->rows, sizeof(struct row) * (file->length + 1));
+  memmove(&file->rows[at + 1], &file->rows[at],
+          sizeof(struct row) * (file->length - at));
+
+  file->rows[at] = (struct row){NULL, 0, NULL, 0};
+  file->rows[at].chars = malloc(len + 1);
+  file->rows[at].rchars = NULL;
+  file->rows[at].rlength = 0;
+  memcpy(file->rows[at].chars, s, len);
+  file->rows[at].chars[len] = '\0';
+  file->rows[at].length = len;
+
+  editor_update_render_row(&file->rows[at]);
+
+  file->length++;
+}
+
 int editor_process_input(struct editor *E) {
   char c = editor_read_key();
 
@@ -380,6 +401,39 @@ int editor_process_input(struct editor *E) {
         }
         E->file_cursor_col--;
       }
+      break;
+    }
+    case '\r': {
+      char *new_row = edit_split_string(
+          &E->file.rows[E->file_cursor_row].chars,
+          &E->file.rows[E->file_cursor_row].length, E->file_cursor_col);
+      editor_update_render_row(&E->file.rows[E->file_cursor_row]);
+      render_row(&E->render_buffer, E->file.rows[E->file_cursor_row].rchars,
+                 E->file.rows[E->file_cursor_row].rlength);
+      file_insert_row(&E->file, E->file_cursor_row + 1, new_row,
+                      strlen(new_row));
+      render_buffer_append(&E->render_buffer, "\r\033D", 3);
+      E->file_cursor_row++;
+      E->file_cursor_col = 0;
+      E->render_cursor_col = 0;
+      if (E->file_cursor_row > E->render_row_offset + E->screen_rows - 1) {
+        E->render_row_offset++;
+      }
+      for (int i = E->file_cursor_row;
+           i < E->screen_rows + E->render_row_offset && i < E->file.length;
+           i++) {
+        render_row(&E->render_buffer, E->file.rows[i].rchars,
+                   E->file.rows[i].rlength);
+        if (i < E->screen_rows + E->render_row_offset - 1) {
+          render_buffer_append(&E->render_buffer, "\r\n", 2);
+        }
+      }
+      set_render_column(E->file.rows[E->file_cursor_row].chars,
+                        E->file.rows[E->file_cursor_row].length,
+                        &E->file_cursor_col, &E->render_cursor_col, 0);
+      render_set_cursor_position(&E->render_buffer,
+                                 E->file_cursor_row - E->render_row_offset + 1,
+                                 E->render_cursor_col + 1);
       break;
     }
     default:
