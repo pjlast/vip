@@ -225,7 +225,8 @@ int editor_process_input(struct editor *E) {
           if (E->file->lines[E->file_cursor_row].chars[E->file_cursor_col] ==
               '\t')
             E->render_cursor_col += TAB_STOP - 1;
-          if (E->render_cursor_col < preferred_col) {
+          if (E->render_cursor_col < preferred_col &&
+              E->file_cursor_col + 1 < E->file->lines[E->file_cursor_row].len) {
             E->render_cursor_col++;
             E->file_cursor_col++;
           } else {
@@ -235,11 +236,11 @@ int editor_process_input(struct editor *E) {
 
         render_set_cursor_position(
             &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
-            E->file_cursor_col + 1);
+            E->render_cursor_col + 1);
       }
       break;
     case 'j': {
-      if (E->file_cursor_row < E->file->len - 1) {
+      if (E->file_cursor_row + 1 < E->file->len) {
         E->file_cursor_row++;
         render_buffer_append(&E->render_buffer, "\033D", 3);
         if (E->file_cursor_row > E->render_row_offset + E->screen_lines - 1) {
@@ -259,7 +260,8 @@ int editor_process_input(struct editor *E) {
           if (E->file->lines[E->file_cursor_row].chars[E->file_cursor_col] ==
               '\t')
             E->render_cursor_col += TAB_STOP - 1;
-          if (E->render_cursor_col < preferred_col) {
+          if (E->render_cursor_col < preferred_col &&
+              E->file_cursor_col + 1 < E->file->lines[E->file_cursor_row].len) {
             E->render_cursor_col++;
             E->file_cursor_col++;
           } else {
@@ -274,7 +276,7 @@ int editor_process_input(struct editor *E) {
       break;
     }
     case 'l':
-      if (E->file_cursor_col < E->file->lines[E->file_cursor_row].len - 1) {
+      if (E->file_cursor_col + 1 < E->file->lines[E->file_cursor_row].len) {
         E->file_cursor_col++;
         if (E->file->lines[E->file_cursor_row].chars[E->file_cursor_col] ==
             '\t') {
@@ -315,7 +317,7 @@ int editor_process_input(struct editor *E) {
       E->mode = MODE_INSERT;
       break;
     case 'A':
-      if (E->file->lines[E->file_cursor_col].len > 0) {
+      if (E->file->lines[E->file_cursor_row].len > 0) {
         E->file_cursor_col = E->file->lines[E->file_cursor_row].len;
         set_render_column(E->file->lines[E->file_cursor_row].chars,
                           E->file->lines[E->file_cursor_row].len,
