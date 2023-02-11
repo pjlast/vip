@@ -43,78 +43,12 @@ struct editor {
 
 void editor_open_file(struct editor *E, char *filename) {
   E->file = file_open(filename);
-  // FILE *fp = fopen(filename, "r");
-
-  // char *line = NULL;
-  // size_t linecap = 0;
-  // ssize_t linelen;
-  // while ((linelen = getline(&line, &linecap, fp)) > 0) {
-  //   if (linelen != -1) {
-  //     while (linelen > 0 &&
-  //            (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
-  //       linelen--;
-
-  //    E->file.lines =
-  //        realloc(E->file.lines, sizeof(struct line) * (E->file.len + 1));
-
-  //    E->file.lines[E->file.len].chars = malloc(linelen + 1);
-  //    E->file.lines[E->file.len].len = linelen;
-  //    memcpy(E->file.lines[E->file.len].chars, line, linelen);
-  //    int tabs = 0;
-  //    for (int i = 0; i <= linelen; i++) {
-  //      E->file.lines[E->file.len].chars[i] = line[i];
-  //      if (line[i] == '\t')
-  //        tabs++;
-  //    }
-  //    E->file.lines[E->file.len].chars[linelen] = '\0';
-
-  //    E->file.lines[E->file.len].rchars =
-  //        malloc(linelen + tabs * (TAB_STOP - 1) + 1);
-  //    E->file.lines[E->file.len].rlength = linelen + tabs * (TAB_STOP - 1);
-
-  //    int i = 0;
-  //    for (int j = 0; j < linelen; j++) {
-  //      if (line[j] == '\t') {
-  //        for (int k = 0; k < TAB_STOP; k++)
-  //          E->file.lines[E->file.len].rchars[i++] = ' ';
-  //      } else {
-  //        E->file.lines[E->file.len].rchars[i++] = line[j];
-  //      }
-  //    }
-  //    E->file.lines[E->file.len].rchars[i] = '\0';
-
-  //    E->file.len++;
-  //  }
-  //}
-
   E->filename = filename;
-  // fclose(fp);
 }
 
 void editor_save_file(struct editor *E, char *filename) {
   file_save(E->file, filename);
 }
-
-// void editor_update_render_row(struct line *line) {
-//   int tabs = 0;
-//   for (int i = 0; i < line->len; i++)
-//     if (line->chars[i] == '\t')
-//       tabs++;
-//
-//   line->rchars = realloc(line->rchars, line->len + tabs * (TAB_STOP - 1) +
-//   1); line->rlength = line->len + tabs * (TAB_STOP - 1);
-//
-//   int i = 0;
-//   for (int j = 0; j < line->len; j++) {
-//     if (line->chars[j] == '\t') {
-//       for (int k = 0; k < TAB_STOP; k++)
-//         line->rchars[i++] = ' ';
-//     } else {
-//       line->rchars[i++] = line->chars[j];
-//     }
-//   }
-//   line->rchars[i] = '\0';
-// }
 
 void editor_close(struct editor *E) {
   render_clear_screen(&E->render_buffer);
@@ -160,13 +94,9 @@ void file_insert_row(struct file *file, int at, char *s, size_t len) {
 
   file->lines[at] = (struct line){NULL, 0};
   file->lines[at].chars = malloc(len + 1);
-  // file->lines[at].rchars = NULL;
-  // file->lines[at].rlength = 0;
   memcpy(file->lines[at].chars, s, len);
   file->lines[at].chars[len] = '\0';
   file->lines[at].len = len;
-
-  // editor_update_render_row(&file->lines[at]);
 
   file->len++;
 }
@@ -207,7 +137,7 @@ int editor_process_input(struct editor *E) {
     case 'k':
       if (E->file_cursor_row > 0) {
         E->file_cursor_row--;
-        render_buffer_append(&E->render_buffer, "\033M", 3);
+        render_buffer_append(&E->render_buffer, "\033M", 2);
         if (E->file_cursor_row < E->render_row_offset) {
           E->render_row_offset--;
           render_buffer_append(&E->render_buffer, "\033[s\r", 4);
@@ -242,7 +172,7 @@ int editor_process_input(struct editor *E) {
     case 'j': {
       if (E->file_cursor_row + 1 < E->file->len) {
         E->file_cursor_row++;
-        render_buffer_append(&E->render_buffer, "\033D", 3);
+        render_buffer_append(&E->render_buffer, "\n", 1);
         if (E->file_cursor_row > E->render_row_offset + E->screen_lines - 1) {
           E->render_row_offset++;
           render_buffer_append(&E->render_buffer, "\033[s\r", 4);
@@ -394,7 +324,6 @@ int editor_process_input(struct editor *E) {
         edit_delete_char(&E->file->lines[E->file_cursor_row].chars,
                          &E->file->lines[E->file_cursor_row].len,
                          E->file_cursor_col - 1);
-        // editor_update_render_row(&E->file.lines[E->file_cursor_row]);
         render_row(&E->render_buffer, E->file->lines[E->file_cursor_row].chars,
                    E->file->lines[E->file_cursor_row].len, TAB_STOP);
         if (del_char == '\t') {
@@ -420,7 +349,6 @@ int editor_process_input(struct editor *E) {
                            &E->file->lines[E->file_cursor_row].len,
                            E->file->lines[E->file_cursor_row + 1].chars,
                            E->file->lines[E->file_cursor_row + 1].len);
-        // editor_update_render_row(&E->file.lines[E->file_cursor_row]);
         file_delete_row(E->file, E->file_cursor_row + 1);
         render_buffer_append(&E->render_buffer, "\033M", 2);
         for (int i = E->file_cursor_row;
@@ -446,27 +374,29 @@ int editor_process_input(struct editor *E) {
       char *new_row = edit_split_string(
           &E->file->lines[E->file_cursor_row].chars,
           &E->file->lines[E->file_cursor_row].len, E->file_cursor_col);
-      // editor_update_render_row(&E->file.lines[E->file_cursor_row]);
       render_row(&E->render_buffer, E->file->lines[E->file_cursor_row].chars,
                  E->file->lines[E->file_cursor_row].len, TAB_STOP);
       file_insert_row(E->file, E->file_cursor_row + 1, new_row,
                       strlen(new_row));
-      render_buffer_append(&E->render_buffer, "\r\033D", 3);
+      render_buffer_append(&E->render_buffer, "\r\n", 2);
       E->file_cursor_row++;
       E->file_cursor_col = 0;
       E->render_cursor_col = 0;
       if (E->file_cursor_row > E->render_row_offset + E->screen_lines - 1) {
         E->render_row_offset++;
       }
-      for (int i = E->file_cursor_row;
-           i < E->screen_lines + E->render_row_offset && i < E->file->len;
-           i++) {
-        render_row(&E->render_buffer, E->file->lines[i].chars,
-                   E->file->lines[i].len, TAB_STOP);
-        if (i < E->screen_lines + E->render_row_offset - 1) {
-          render_buffer_append(&E->render_buffer, "\r\n", 2);
-        }
-      }
+
+      char term_command[32];
+      int len = snprintf(term_command, sizeof(term_command),
+                         "\033[s\033[%d;%dr\033[u\033M\033[r\033u",
+                         E->file_cursor_row - E->render_row_offset + 1,
+                         E->screen_lines);
+      render_buffer_append(&E->render_buffer, term_command, len);
+      render_set_cursor_position(&E->render_buffer,
+                                 E->file_cursor_row - E->render_row_offset + 1,
+                                 E->render_cursor_col + 1);
+      render_row(&E->render_buffer, E->file->lines[E->file_cursor_row].chars,
+                 E->file->lines[E->file_cursor_row].len, TAB_STOP);
       set_render_column(E->file->lines[E->file_cursor_row].chars,
                         E->file->lines[E->file_cursor_row].len,
                         &E->file_cursor_col, &E->render_cursor_col, 0);
@@ -479,7 +409,6 @@ int editor_process_input(struct editor *E) {
       edit_insert_char(&E->file->lines[E->file_cursor_row].chars,
                        &E->file->lines[E->file_cursor_row].len,
                        E->file_cursor_col, c);
-      // editor_update_render_row(&E->file.lines[E->file_cursor_row]);
       render_row(&E->render_buffer, E->file->lines[E->file_cursor_row].chars,
                  E->file->lines[E->file_cursor_row].len, TAB_STOP);
       if (c == '\t') {
@@ -548,9 +477,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // set_render_column(E.file->lines[E.file_cursor_row].chars,
-  //                   E.file->lines[E.file_cursor_row].len, &E.file_cursor_col,
-  //                   &E.render_cursor_col, 0);
   render_set_cursor_position(&E.render_buffer,
                              E.file_cursor_row - E.render_row_offset + 1,
                              E.file_cursor_col + 1);
