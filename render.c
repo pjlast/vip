@@ -117,9 +117,25 @@ void render_clear_screen(struct render_buffer *buf) {
 };
 
 /* Renders the provided row at the current cursor position. */
-void render_row(struct render_buffer *buf, const char *row, int len) {
+void render_row(struct render_buffer *buf, const char *row, int len,
+                int tab_stop) {
   render_buffer_append(buf, "\033[s\r", 4);
-  render_buffer_append(buf, row, len);
+
+  /* Maximum number of tab stops required */
+  char *rend_buf = malloc(len * tab_stop + 1);
+  int rend_index = 0;
+  for (int i = 0; i < len; i++) {
+    if (row[i] == '\t') {
+      for (int j = 0; j < tab_stop; j++) {
+        rend_buf[rend_index++] = ' ';
+      }
+    } else {
+      rend_buf[rend_index++] = row[i];
+    }
+  }
+  rend_buf[rend_index + 1] = '\0';
+  render_buffer_append(buf, rend_buf, rend_index);
   render_buffer_append(buf, "\033[K", 3);
   render_buffer_append(buf, "\033[u", 3);
+  free(rend_buf);
 }

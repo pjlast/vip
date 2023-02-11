@@ -45,7 +45,7 @@ void render_set_cursor_home(struct render_buffer *buf);
 void render_clear_screen(struct render_buffer *buf);
 
 /* Renders the provided row at the current cursor position. */
-void render_row(struct render_buffer *buf, const char *row, int len);
+void render_row(struct render_buffer *buf, const char *row, int len, int tab_stop);
 
 /* Sets the terminal cursor to the provided row and column. Position index
  * starts at 1. */

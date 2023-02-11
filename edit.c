@@ -2,20 +2,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-void edit_insert_char(char **string, int *len, int pos, char c) {
+void edit_insert_char(char **string, size_t *len, int pos, char c) {
   *string = realloc(*string, *len + 2);
   memcpy(*string + pos + 1, *string + pos, *len - pos);
   (*string)[pos] = c;
   (*string)[++(*len)] = '\0';
 }
 
-void edit_delete_char(char **string, int *len, int pos) {
+void edit_delete_char(char **string, size_t *len, int pos) {
   memcpy(*string + pos, *string + pos + 1, *len - pos);
   (*string)[--(*len)] = '\0';
   *string = realloc(*string, *len + 1);
 }
 
-char *edit_split_string(char **string, int *len, int pos) {
+char *edit_split_string(char **string, size_t *len, int pos) {
   int new_len = *len - pos;
   char *new = malloc(new_len + 1);
   memcpy(new, *string + pos, new_len);
@@ -27,7 +27,7 @@ char *edit_split_string(char **string, int *len, int pos) {
   return new;
 }
 
-void edit_append_string(char **string, int *len, char *astring, int alen) {
+void edit_append_string(char **string, size_t *len, char *astring, size_t alen) {
   *string = realloc(*string, *len + alen + 1);
   memcpy(*string + *len, astring, alen + 1);
   *len += alen;
