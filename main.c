@@ -338,35 +338,68 @@ int editor_process_input(struct editor *E) {
         }
         E->file_cursor_col--;
       } else {
-        E->file_cursor_row--;
-        set_render_column(E->file->lines[E->file_cursor_row].chars,
-                          E->file->lines[E->file_cursor_row].len,
-                          &E->file_cursor_col, &E->render_cursor_col, 999);
-        int preferred_col = E->render_cursor_col;
-        if (E->file->lines[E->file_cursor_row].len > 0)
-          preferred_col++;
-        edit_append_string(&E->file->lines[E->file_cursor_row].chars,
-                           &E->file->lines[E->file_cursor_row].len,
-                           E->file->lines[E->file_cursor_row + 1].chars,
-                           E->file->lines[E->file_cursor_row + 1].len);
-        file_delete_row(E->file, E->file_cursor_row + 1);
-        render_buffer_append(&E->render_buffer, "\033M", 2);
-        for (int i = E->file_cursor_row;
-             i < E->screen_lines + E->render_row_offset - 1 && i < E->file->len;
-             i++) {
-          render_row(&E->render_buffer, E->file->lines[i].chars,
-                     E->file->lines[i].len, TAB_STOP);
-          if (i < E->screen_lines + E->render_row_offset - 2) {
-            render_buffer_append(&E->render_buffer, "\r\n", 2);
+        if (E->file_cursor_row > 0) {
+          int preferred_col = -1;
+          if (E->file->lines[E->file_cursor_row - 1].len > 0) {
+            int cursor_col;
+            set_render_column(E->file->lines[E->file_cursor_row - 1].chars,
+                              E->file->lines[E->file_cursor_row - 1].len,
+                              &cursor_col, &preferred_col, 999);
           }
+
+          // Append the current line to the previous line
+          edit_append_string(&E->file->lines[E->file_cursor_row - 1].chars,
+                             &E->file->lines[E->file_cursor_row - 1].len,
+                             E->file->lines[E->file_cursor_row].chars,
+                             E->file->lines[E->file_cursor_row].len);
+          // Delete the current line
+          file_delete_row(E->file, E->file_cursor_row);
+          // Scroll the section from the current line to the end of the screen
+          // up by one
+          char term_command[32];
+          int len;
+          if (E->file_cursor_row < E->render_row_offset + E->screen_lines - 1) {
+            len = snprintf(term_command, sizeof(term_command),
+                           "\033[s\033[%d;%dr\033[%d;%dH\033D",
+                           E->file_cursor_row - E->render_row_offset + 1,
+                           E->screen_lines, E->screen_lines, 1);
+            render_buffer_append(&E->render_buffer, term_command, len);
+          }
+          // Move the cursor to the final line of the screen and
+          // render the newly visible line
+          render_row(
+              &E->render_buffer,
+              E->file->lines[E->screen_lines - 1 + E->render_row_offset].chars,
+              E->file->lines[E->screen_lines - 1 + E->render_row_offset].len,
+              TAB_STOP);
+          len = snprintf(term_command, sizeof(term_command),
+                         "\033[r\033[%d;%dH\033M",
+                         E->file_cursor_row - E->render_row_offset + 1,
+                         E->file_cursor_col + 1);
+          render_buffer_append(&E->render_buffer, term_command, len);
+          E->file_cursor_row--;
+          if (E->file_cursor_row < E->render_row_offset) {
+            E->render_row_offset--;
+          }
+          render_row(&E->render_buffer,
+                     E->file->lines[E->file_cursor_row].chars,
+                     E->file->lines[E->file_cursor_row].len, TAB_STOP);
+          // Move the cursor to the joined line
+          //
+          // Render it
+          // Move the cursor to the join position
+          set_render_column(E->file->lines[E->file_cursor_row].chars,
+                            E->file->lines[E->file_cursor_row].len,
+                            &E->file_cursor_col, &E->render_cursor_col,
+                            preferred_col);
+          if (preferred_col > -1) {
+            E->file_cursor_col++;
+            E->render_cursor_col++;
+          }
+          render_set_cursor_position(
+              &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
+              E->render_cursor_col + 1);
         }
-        set_render_column(E->file->lines[E->file_cursor_row].chars,
-                          E->file->lines[E->file_cursor_row].len,
-                          &E->file_cursor_col, &E->render_cursor_col,
-                          preferred_col);
-        render_set_cursor_position(
-            &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
-            E->render_cursor_col + 1);
       }
       break;
     }
@@ -388,7 +421,7 @@ int editor_process_input(struct editor *E) {
 
       char term_command[32];
       int len = snprintf(term_command, sizeof(term_command),
-                         "\033[s\033[%d;%dr\033[u\033M\033[r\033u",
+                         "\033[s\033[%d;%dr\033[u\033M\033[r\033[u",
                          E->file_cursor_row - E->render_row_offset + 1,
                          E->screen_lines);
       render_buffer_append(&E->render_buffer, term_command, len);
