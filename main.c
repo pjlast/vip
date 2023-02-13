@@ -105,6 +105,7 @@ void file_delete_row(struct file *file, int at) {
   if (at < 0 || at > file->len)
     return;
 
+  free(file->lines[at].chars);
   memmove(&file->lines[at], &file->lines[at + 1],
           sizeof(struct line) * (file->len - at - 1));
   file->lines = realloc(file->lines, sizeof(struct line) * (file->len - 1));
@@ -302,6 +303,56 @@ int editor_process_input(struct editor *E) {
         }
       }
       break;
+    case 'd': {
+      c = editor_read_key();
+      if (c == 'd') {
+        int preferred_col = E->render_cursor_col;
+        file_delete_row(E->file, E->file_cursor_row);
+        char term_command[32];
+        int len;
+        if (E->file_cursor_row < E->render_row_offset + E->screen_lines - 1) {
+          len = snprintf(term_command, sizeof(term_command),
+                         "\033[s\033[%d;%dr\033[%d;%dH\033D",
+                         E->file_cursor_row - E->render_row_offset + 1,
+                         E->screen_lines, E->screen_lines, 1);
+          render_buffer_append(&E->render_buffer, term_command, len);
+        }
+        // Move the cursor to the final line of the screen and
+        // render the newly visible line
+        render_row(
+            &E->render_buffer,
+            E->file->lines[E->screen_lines - 1 + E->render_row_offset].chars,
+            E->file->lines[E->screen_lines - 1 + E->render_row_offset].len,
+            TAB_STOP);
+        len = snprintf(term_command, sizeof(term_command),
+                       "\033[r\033[%d;%dH\033M",
+                       E->file_cursor_row - E->render_row_offset + 1,
+                       E->file_cursor_col + 1);
+        render_buffer_append(&E->render_buffer, term_command, len);
+        E->file_cursor_row--;
+        if (E->file_cursor_row < E->render_row_offset) {
+          E->render_row_offset--;
+        }
+        render_row(&E->render_buffer, E->file->lines[E->file_cursor_row].chars,
+                   E->file->lines[E->file_cursor_row].len, TAB_STOP);
+        // Move the cursor to the joined line
+        //
+        // Render it
+        // Move the cursor to the join position
+        set_render_column(E->file->lines[E->file_cursor_row].chars,
+                          E->file->lines[E->file_cursor_row].len,
+                          &E->file_cursor_col, &E->render_cursor_col,
+                          preferred_col);
+        if (preferred_col > -1) {
+          E->file_cursor_col++;
+          E->render_cursor_col++;
+        }
+        render_set_cursor_position(
+            &E->render_buffer, E->file_cursor_row - E->render_row_offset + 1,
+            E->render_cursor_col + 1);
+      }
+      break;
+    }
     case ':':
       E->mode = MODE_COMMAND;
       break;
